@@ -4,7 +4,7 @@ from paddle.fluid.dygraph.nn import InstanceNorm, Conv2D, Conv2DTranspose
 from paddle.nn.layer import Leaky_ReLU, ReLU, Pad2D
 from .modules import MobileResnetBlock
 
-use_cudnn=True #False
+use_cudnn=False
 class MobileResnetGenerator(fluid.dygraph.Layer):
     def __init__ (self, input_channel, output_nc, ngf, norm_layer=InstanceNorm, dropout_rate=0, n_blocks=9, padding_type='reflect'):
         super(MobileResnetGenerator, self).__init__()
@@ -60,7 +60,7 @@ class MobileResnetGenerator(fluid.dygraph.Layer):
         y = inputs
         for sublayer in self.model:
             y = sublayer(y)
-            #print(sublayer, np.sum(np.abs(y.numpy())))
+        #    print(sublayer, np.sum(np.abs(y.numpy())))
         y = fluid.layers.tanh(y)
         #print(np.sum(np.abs(y.numpy())))
         #print("===================================================")

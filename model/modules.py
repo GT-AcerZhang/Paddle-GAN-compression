@@ -4,12 +4,12 @@ from paddle.nn.layer import Leaky_ReLU, ReLU, Pad2D
 
 __all__ = ['SeparableConv2D', 'MobileResnetBlock', 'ResnetBlock']
 
-use_cudnn=True #False
+use_cudnn=False
 class SeparableConv2D(fluid.dygraph.Layer):
     def __init__(self, num_channels, num_filters, filter_size, stride=1, padding=0, norm_layer=InstanceNorm, use_bias=True, scale_factor=1, stddev=0.02, use_cudnn=use_cudnn):
         super(SeparableConv2D, self).__init__()
 
-        self.conv = fluid.dygraph.LayerList([Conv2D(num_channels=num_channels, num_filters=num_channels * scale_factor, filter_size=filter_size, stride=stride, padding=padding, use_cudnn=use_cudnn, groups = num_channels, param_attr=fluid.ParamAttr(initializer=fluid.initializer.NormalInitializer(loc=0.0,scale=stddev)), bias_attr=use_bias)])
+        self.conv = fluid.dygraph.LayerList([Conv2D(num_channels=num_channels, num_filters=num_channels * scale_factor, filter_size=filter_size, stride=stride, padding=padding, use_cudnn=False, groups = num_channels, param_attr=fluid.ParamAttr(initializer=fluid.initializer.NormalInitializer(loc=0.0,scale=stddev)), bias_attr=use_bias)])
 
         #self.conv.extend([norm_layer(num_channels * scale_factor)])
         self.conv.extend([InstanceNorm(num_channels * scale_factor, param_attr=fluid.ParamAttr(initializer=fluid.initializer.Constant(1.0), learning_rate=0.0, trainable=False), bias_attr=fluid.ParamAttr(initializer=fluid.initializer.Constant(0.0), learning_rate=0.0, trainable=False))])
@@ -55,7 +55,9 @@ class MobileResnetBlock(fluid.dygraph.Layer):
         else:
             raise NotImplementedError('padding [%s] is not implemented' % self.padding_type)
 
-        self.conv_block.extend([SeparableConv2D(num_channels=dim, num_filters=dim, filter_size=3, padding=p, stride=1), norm_layer(dim)])
+        self.conv_block.extend([SeparableConv2D(num_channels=dim, num_filters=dim, filter_size=3, padding=p, stride=1), 
+                                InstanceNorm(dim, param_attr=fluid.ParamAttr(initializer=fluid.initializer.Constant(1.0), learning_rate=0.0, trainable=False), bias_attr=fluid.ParamAttr(initializer=fluid.initializer.Constant(0.0), learning_rate=0.0, trainable=False))])
+                                #norm_layer(dim)])
 
     def forward(self, inputs):
         y = inputs

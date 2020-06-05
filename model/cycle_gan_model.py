@@ -101,6 +101,7 @@ class CycleGAN(fluid.dygraph.Layer):
         pred_real = netD(real)
         loss_D_real = loss.gan_loss(self.args.gan_loss_mode, pred_real, True)
         ### fake
+        #fake.stop_gradient = True
         pred_fake = netD(fake.detach())
         loss_D_fake = loss.gan_loss(self.args.gan_loss_mode, pred_fake, False)
 
@@ -168,7 +169,7 @@ class CycleGAN(fluid.dygraph.Layer):
         self.forward()
         ### TODO: DONNOT need to update params in netD, need to check it
         self.set_stop_gradient([self.netD_A, self.netD_B], True)
-        self.set_stop_gradient([self.netG_A, self.netG_B], False)
+        #self.set_stop_gradient([self.netG_A, self.netG_B], False)
         self.backward_G() ## calculate gradients for G_A and G_B
         self.optimizer_G.optimizer.minimize(self.loss_G)
         #print("=======================  network G =========================")
@@ -180,7 +181,7 @@ class CycleGAN(fluid.dygraph.Layer):
         #        print(para.name, para.gradient())
         #print("=============================================================")
         self.optimizer_G.optimizer.clear_gradients()
-        self.set_stop_gradient([self.netG_A, self.netG_B], True)
+        #self.set_stop_gradient([self.netG_A, self.netG_B], True)
         self.set_stop_gradient([self.netD_A], False)
         self.backward_D_A() ### calculate gradients for D_A
         self.optimizer_D_A.optimizer.minimize(self.loss_D_A)

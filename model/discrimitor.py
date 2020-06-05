@@ -39,7 +39,7 @@ class NLayerDiscriminator(fluid.dygraph.Layer):
         y = inputs
         for sublayer in self.model:
             y = sublayer(y)
-            #print(sublayer, np.sum(np.abs(y.numpy())))
+        #    print(sublayer, np.sum(np.abs(y.numpy())))
         #print("===================================================")
         return y
 
