@@ -7,11 +7,13 @@ import paddle.fluid as fluid
 def load_network(model, model_path):
     if model_path.split('.')[-1] == 'pkl' or model_path.split('.')[-1] == 'pth':
         model_weight = pickle.load(open(model_path, 'rb'))
+        for key, value in model_weight.items():
+            model_weight[key] = np.array(value)
     else:
         assert os.path.exists(model_path+'.pdparams'), "model path: {} is not exist!!!".format(model_path+'.pdparams')
         model_weight, _ = fluid.load_dygraph(model_path)
     model.set_dict(model_weight)
-    print("========================== params load done =======================")
+    print("params {} load done".format(model_path))
     return model
 
 def load_optimizer(optimizer, optimizer_path):

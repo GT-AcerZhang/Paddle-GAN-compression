@@ -78,7 +78,7 @@ def _get_activations_from_ims(img, model, batch_size, dims, use_gpu, premodel_pa
         images /= 255
 
         output, main_program, startup_program = _build_program(model)
-        place = fluid.CUDAPlace(0) if use_gpu else fluid.CPUPlace()
+        place = fluid.cuda_places()[0] if use_gpu else fluid.CPUPlace()
         exe = fluid.Executor(place)
         exe.run(startup_program)
 
@@ -181,14 +181,3 @@ def calculate_fid_given_paths(paths, batch_size, use_gpu, dims, premodel_path, m
     fid_value = _calculate_frechet_distance(m1, s1, m2, s2)
     return fid_value
     
-
-### test code
-#if __name__ == '__main__':
-#    paths = ['./img', './img']
-#    fid_value = calculate_fid_given_paths(paths, 1, True, 2048, './params_inceptionV3')
-#    print('FID: ', fid_value)
-#    
-#    #img = np.expand_dims(imread('./img/ILSVRC2012_val_00000341.jpg').transpose(2, 0, 1), axis=0).astype('float32')
-#    img_a = np.array([imread('./img/ILSVRC2012_val_00000341.jpg').astype(np.float32)])
-#    img_b = np.array([imread('./img/ILSVRC2012_val_00000341.JPEG').astype(np.float32)])
-#    print(calculate_fid_given_img(img_a, img_b, 1, True, 2048, './params_inceptionV3'))

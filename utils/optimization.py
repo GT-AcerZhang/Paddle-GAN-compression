@@ -18,17 +18,23 @@ class LinearDecay(LearningRateDecay):
         return self.create_lr_var(lr_l * self.learning_rate)
 
 class Optimizer:
-    def __init__(self, args, parameter_list=None):
+    def __init__(self, lr, scheduler, step_per_epoch, nepochs, nepochs_decay, args, parameter_list=None):
+        self.lr = lr
+        self.scheduler = scheduler
+        self.step_per_epoch = step_per_epoch
+        self.nepochs = nepochs
+        self.nepochs_decay = nepochs_decay
         self.args = args
         self.parameter_list = parameter_list
         self.optimizer = self.lr_scheduler()
 
+    ### NOTE(ceci3): add more scheduler
     def lr_scheduler(self):
-        if self.args.scheduler == 'linear':
-            self.scheduler_lr = LinearDecay(self.args.lr, self.args.step_per_epoch, self.args.nepochs, self.args.nepochs_decay)
-        elif self.args.scheduler == 'step':
+        if self.scheduler == 'linear':
+            self.scheduler_lr = LinearDecay(self.lr, self.step_per_epoch, self.nepochs, self.nepochs_decay)
+        elif self.scheduler == 'step':
             pass
-        elif self.args.scheduler == 'cosine':
+        elif self.scheduler == 'cosine':
             pass
         else:
             return NotImplementedError('learning rate policy [%s] is not implemented', opt.lr_policy)

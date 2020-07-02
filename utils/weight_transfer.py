@@ -1,8 +1,6 @@
 import paddle.fluid as fluid
 from paddle.fluid.dygraph.nn import Conv2D, Conv2DTranspose, InstanceNorm
-import sys
-sys.path.append('..')
-from model.modules import SeparableConv2D, MobileResnetBlock, ResnetBlock
+from models.modules import SeparableConv2D, MobileResnetBlock, ResnetBlock
 from paddle.fluid.dygraph.base import to_variable
 import numpy as np
 
@@ -22,23 +20,19 @@ def transfer_Conv2D(m1, m2, input_index=None, output_index=None):
             input_index = [0, 1, 2]
         p = m1.parameters()[0]
 
-        with fluid.dygraph.guard():
-            if input_index is None:
-                #with fluid.dygraph.guard():
-                q = fluid.layers.reduce_sum(fluid.layers.abs(p), dim=[0, 2, 3])
-                _, idx = fluid.layers.topk(q, m2.parameters()[0].shape[1])
-                p = p.numpy()[:, idx.numpy()]
-            else:
-                #with fluid.dygraph.guard():
-                p = p.numpy()[:, input_index]
-                
-            if output_index is None:
-                #with fluid.dygraph.guard():
-                q = fluid.layers.reduce_sum(fluid.layers.abs(to_variable(p)), dim=[1, 2, 3])
-                _, idx = fluid.layers.topk(q, m2.parameters()[0].shape[0])
-                idx = idx.numpy()
-            else:
-                idx = output_index
+        if input_index is None:
+            q = fluid.layers.reduce_sum(fluid.layers.abs(p), dim=[0, 2, 3])
+            _, idx = fluid.layers.topk(q, m2.parameters()[0].shape[1])
+            p = p.numpy()[:, idx.numpy()]
+        else:
+            p = p.numpy()[:, input_index]
+            
+        if output_index is None:
+            q = fluid.layers.reduce_sum(fluid.layers.abs(to_variable(p)), dim=[1, 2, 3])
+            _, idx = fluid.layers.topk(q, m2.parameters()[0].shape[0])
+            idx = idx.numpy()
+        else:
+            idx = output_index
     
         m2.parameters()[0].set_value(p[idx])
         if len(m2.parameters()) == 2:
@@ -52,20 +46,16 @@ def transfer_Conv2DTranspose(m1, m2, input_index=None, output_index=None):
     assert output_index is None
     p = m1.parameters()[0]
     with fluid.dygraph.guard():
-        if input_index is not None:
-            #with fluid.dygraph.guard():
+        if input_index is None:
             q = fluid.layers.reduce_sum(fluid.layers.abs(p), dim = [1, 2, 3])
             _, idx = fluid.layers.topk(q, m2.parameters()[0].shape[0])  ### Cin
             p = p.numpy()[idx.numpy()]
         else:
-            p = p.numpy() #[input_index]
+            p = p.numpy()[input_index]
 
-    #with fluid.dygraph.guard():
         q = fluid.layers.reduce_sum(fluid.layers.abs(to_variable(p)), dim = [0, 2, 3])
         _, idx = fluid.layers.topk(q, m2.parameters()[0].shape[1])
         idx = idx.numpy()
-        print("=======================", idx, len(idx), p[:, idx].shape)
-        print(m2.parameters()[0].shape)
         m2.parameters()[0].set_value(p[:, idx])
         if len(m2.parameters()) == 2:
             m2.parameters()[1].set_value(m1.parameters()[1].numpy()[idx])
@@ -74,17 +64,14 @@ def transfer_Conv2DTranspose(m1, m2, input_index=None, output_index=None):
 
 def transfer_SeparableConv2D(m1, m2, input_index=None, output_index=None):
     assert isinstance(m1, SeparableConv2D) and isinstance(m2, SeparableConv2D)
-    #dw1, pw1 = m1.conv_sep, m1.conv_out
-    #dw2, pw2 = m2.conv_sep, m2.conv_out
     dw1, pw1 = m1.conv[0], m1.conv[2]
     dw2, pw2 = m2.conv[0], m2.conv[2]
 
     if input_index is None:
         p = dw1.parameters()[0]
-        with fluid.dygraph.guard():
-            q = fluid.layers.reduce_sum(fluid.layers.abs(p), dim = [1, 2, 3])
-            _, idx = fluid.layers.topk(q, dw2.parameters()[0].shape[0])
-            input_index = idx.numpy()
+        q = fluid.layers.reduce_sum(fluid.layers.abs(p), dim = [1, 2, 3])
+        _, idx = fluid.layers.topk(q, dw2.parameters()[0].shape[0])
+        input_index = idx.numpy()
     dw2.parameters()[0].set_value(dw1.parameters()[0].numpy()[input_index])
 
     if len(dw2.parameters()) == 2:
@@ -98,8 +85,6 @@ def transfer_MobileResnetBlock(m1, m2, input_index=None, output_index=None):
     assert output_index is None
     idx = transfer_SeparableConv2D(m1.conv_block[1], m2.conv_block[1], input_index=input_index)
     idx = transfer_SeparableConv2D(m1.conv_block[6], m2.conv_block[6], input_index=idx, output_index=input_index)
-    #idx = transfer_SeparableConv2D(m1.sep_conv1, m2.sep_conv1, input_index=input_index)
-    #idx = transfer_SeparableConv2D(m1.sep_conv2, m2.sep_conv2, input_index=idx, output_index=input_index)
     return idx
 
 def transfer_ResnetBlock(m1, m2, input_index=None, output_index=None):
@@ -107,21 +92,18 @@ def transfer_ResnetBlock(m1, m2, input_index=None, output_index=None):
     assert output_index is None
     idx = transfer_Conv2D(m1.conv_block[1], m2.conv_block[1], input_index=input_index)
     idx = transfer_Conv2D(m1.conv_block[6], m2.conv_block[6], input_index=idx, output_index=input_index)
-    #idx = transfer_Conv2D(m1.conv0.conv, m2.conv0.conv, input_index=input_index)
-    #idx = transfer_Conv2D(m1.conv1.conv, m2.conv1.conv, input_index=idx, output_index=input_index)
     return idx
 
 def transfer(m1, m2, input_index=None, output_index=None):
-    print(m1)
     assert type(m1) == type(m2)
     if isinstance(m1, Conv2D):
-        transfer_Conv2D(m1, m2, input_index, output_index)
+        return transfer_Conv2D(m1, m2, input_index, output_index)
     elif isinstance(m1, Conv2DTranspose):
-        transfer_Conv2DTranspose(m1, m2, input_index, output_index)
+        return transfer_Conv2DTranspose(m1, m2, input_index, output_index)
     elif isinstance(m1, ResnetBlock):
-        transfer_ResnnetBlock(m1, m2, input_index, output_index)
+        return transfer_ResnnetBlock(m1, m2, input_index, output_index)
     elif isinstance(m1, MobileResnetBlock):
-        transfer_MobileResnetBlock(m1, m2, input_index, output_index)
+        return transfer_MobileResnetBlock(m1, m2, input_index, output_index)
     else:
         raise NotImplementedError('Unknown module [%s]!' % type(m1))
 
@@ -132,8 +114,10 @@ def load_pretrained_weight(model1, model2, netA, netB, ngf1, ngf2):
     index = None
     if model1 == 'mobile_resnet_9blocks':
         assert len(netA.sublayers()) == len(netB.sublayers())
-        for m1, m2 in zip(netA.sublayers(), netB.sublayers()):
+        for (n1, m1), (n2, m2) in zip(netA.named_sublayers(), netB.named_sublayers()):
             assert type(m1) == type(m2)
+            if len(n1) > 8:
+                continue
             if isinstance(m1, (Conv2D, Conv2DTranspose, MobileResnetBlock)):
                 index = transfer(m1, m2, index)
 
@@ -151,7 +135,6 @@ class Test(fluid.dygraph.Layer):
     def __init__(self):
         super(Test, self).__init__()
         self.net1 = SeparableConv2D(num_channels = 4, num_filters=6, filter_size=3)
-        #net2 = MobileResnetBlock(dim = 4, padding_type='reflect', norm_layer=InstanceNorm, dropout_rate=0.5, use_bias=False)
 
     def forward(self, x):
         out = self.net1(x)
