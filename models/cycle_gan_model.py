@@ -14,7 +14,7 @@ class CycleGAN(BaseModel):
     @staticmethod
     def add_special_cfgs(parser):
         parser.add_argument('--mobile_lr', type=float, default=2e-4, help="initial learning rate to train cyclegan")
-        parser.add_argument('--mobile_epoch', type=int, default=2, help="The number of epoch to train mobile net")
+        parser.add_argument('--mobile_epoch', type=int, default=1, help="The number of epoch to train mobile net")
         parser.add_argument('--mobile_nepochs', type=int, default=1, help="number of epochs with the initial learning rate")
         parser.add_argument('--mobile_nepochs_decay', type=int, default=1, help="number of epochs to linearly decay learning rate to zero")
         parser.add_argument('--mobile_scheduler', type=str, default='linear', help="learning rate scheduler")
@@ -32,7 +32,7 @@ class CycleGAN(BaseModel):
         assert cfgs.direction == 'AtoB'
         self.cfgs = cfgs
         self.loss_names = ['D_A', 'G_A', 'G_cycle_A', 'G_idt_A', 'D_B', 'G_B', 'G_cycle_B', 'G_idt_B']
-        self.model_names = ['G_A', 'G_B', 'D_A', 'D_B']
+        self.model_names = ['netG_A', 'netG_B', 'netD_A', 'netD_B']
 
         self.netG_A = network.define_G(cfgs.input_nc, cfgs.output_nc, cfgs.ngf, cfgs.netG, cfgs.norm_type, cfgs.dropout_rate)
         self.netG_B = network.define_G(cfgs.output_nc, cfgs.input_nc, cfgs.ngf, cfgs.netG, cfgs.norm_type, cfgs.dropout_rate)
@@ -40,11 +40,10 @@ class CycleGAN(BaseModel):
         self.netD_B = network.define_D(cfgs.input_nc, cfgs.ndf, cfgs.netD, cfgs.norm_type, cfgs.n_layer_D)
 
         if self.cfgs.use_parallel:
-            strategy = fluid.dygraph.parallel.prepare_context()
-            self.netG_A = fluid.dygraph.parallel.DataParallel(self.netG_A, strategy)
-            self.netG_B = fluid.dygraph.parallel.DataParallel(self.netG_B, strategy)
-            self.netD_A = fluid.dygraph.parallel.DataParallel(self.netD_A, strategy)
-            self.netD_B = fluid.dygraph.parallel.DataParallel(self.netD_B, strategy)
+            self.netG_A = fluid.dygraph.parallel.DataParallel(self.netG_A, self.cfgs.strategy)
+            self.netG_B = fluid.dygraph.parallel.DataParallel(self.netG_B, self.cfgs.strategy)
+            self.netD_A = fluid.dygraph.parallel.DataParallel(self.netD_A, self.cfgs.strategy)
+            self.netD_B = fluid.dygraph.parallel.DataParallel(self.netD_B, self.cfgs.strategy)
 
         if cfgs.lambda_identity > 0.0:
             assert (cfgs.input_nc == cfgs.output_nc)
@@ -74,22 +73,22 @@ class CycleGAN(BaseModel):
     def set_single_input(self, inputs):
         self.real_A = inputs[0]
 
-    def setup(self):
+    def setup(self, model_weight=None):
         self.load_network()
 
     def load_network(self):
         for name in self.model_names:
-            net = getattr(self, 'net' + name, None)
-            path = getattr(self.cfgs, 'restore_%s_path' % name, None)
+            net = getattr(self, name, None)
+            path = getattr(self.cfgs, 'restore_%s_path' % name[3:], None)
             if path is not None:
                 util.load_network(net, path)
 
     def save_network(self, epoch):
         for name in self.model_names:
             if isinstance(name, str):
-                save_filename = '%s_net%s' % (epoch, name)
+                save_filename = '%s_net%s' % (epoch, name[3:])
                 save_path = os.path.join(self.cfgs.save_dir, 'mobile', 'checkpoint', save_filename)
-                net = getattr(self, 'net' + name)
+                net = getattr(self, name)
                 fluid.save_dygraph(net.state_dict(), save_path)
 
     def forward(self):
@@ -196,7 +195,6 @@ class CycleGAN(BaseModel):
         for direction in ['AtoB', 'BtoA']:
             eval_dataloader = getattr(self, 'eval_dataloader_' + direction)
             id2name = getattr(self, 'name_' + direction)
-            print(id2name)
             fakes = []
             cnt = 0
             for i, data_i in enumerate(eval_dataloader):

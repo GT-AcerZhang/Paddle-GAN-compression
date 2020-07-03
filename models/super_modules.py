@@ -7,7 +7,7 @@ from paddle.fluid.dygraph.nn import InstanceNorm, Conv2D, Conv2DTranspose
 import paddle.fluid.core as core
 import numpy as np
 
-use_cudnn=False
+use_cudnn=True
 class SuperInstanceNorm(fluid.dygraph.InstanceNorm):
     def __init__(self, num_channels, epsilon=1e-5, param_attr=None, bias_attr=None, dtype='float32'):
         super(SuperInstanceNorm, self).__init__(num_channels, epsilon=1e-5, param_attr=None, bias_attr=None, dtype='float32')

@@ -4,7 +4,7 @@ from paddle.fluid.dygraph.nn import InstanceNorm, Conv2D, Conv2DTranspose
 from paddle.nn.layer import ReLU, Pad2D
 from ..modules import MobileResnetBlock
 
-use_cudnn=False
+use_cudnn=True
 class MobileResnetGenerator(fluid.dygraph.Layer):
     def __init__ (self, input_channel, output_nc, ngf, norm_layer=InstanceNorm, dropout_rate=0, n_blocks=9, padding_type='reflect'):
         super(MobileResnetGenerator, self).__init__()

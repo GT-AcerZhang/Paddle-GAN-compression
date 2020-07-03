@@ -3,10 +3,10 @@ import paddle.fluid as fluid
 import paddle.tensor as tensor
 from paddle.fluid.dygraph.nn import InstanceNorm, Conv2D, Conv2DTranspose
 from paddle.nn.layer import ReLU, Pad2D
-from .modules import SeparableConv2D, MobileResnetBlock
+from ..modules import MobileResnetBlock
 
-use_cudnn=False
-        
+use_cudnn = False #True
+
 class SubMobileResnetGenerator(fluid.dygraph.Layer):
     def __init__ (self, input_channel, output_nc, config, norm_layer=InstanceNorm, dropout_rate=0, n_blocks=9, padding_type='reflect'):
         super(SubMobileResnetGenerator, self).__init__()
@@ -49,6 +49,8 @@ class SubMobileResnetGenerator(fluid.dygraph.Layer):
             mult = 2 ** (n_downsampling - i)
             output_size = (i + 1) * 128
             self.model.extend([Conv2DTranspose(in_c * mult, int(out_c * mult / 2), filter_size=3, output_size=output_size, stride=2, padding=1, use_cudnn=use_cudnn, bias_attr=use_bias),
+#            self.model.extend([Conv2DTranspose(in_c * mult, int(out_c * mult / 2), filter_size=3, stride=2, padding=1, use_cudnn=use_cudnn, bias_attr=use_bias),
+#                               Pad2D(paddings=[0, 1, 0, 1], mode='constant', pad_value=0.0),
                                norm_layer(int(out_c * mult / 2)),
                                ReLU()])
             in_c = out_c
@@ -57,7 +59,7 @@ class SubMobileResnetGenerator(fluid.dygraph.Layer):
         self.model.extend([Conv2D(in_c, output_nc, filter_size=7, padding=0)])
         
     def forward(self, inputs):
-        y = tensor.clamp(input, min=-1, max=1)
+        y = tensor.clamp(inputs, min=-1, max=1)
         for sublayer in self.model:
             y = sublayer(y)
         y = fluid.layers.tanh(y)
